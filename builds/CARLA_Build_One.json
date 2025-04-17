@@ -1,1 +1,98 @@
-// Placeholder for CARLA Build One workflow
+{
+  "name": "CARLA_Build_One",
+  "nodes": [
+    {
+      "parameters": {
+        "calendar": "",
+        "watchFor": [
+          "eventCreated",
+          "eventUpdated"
+        ],
+        "options": {}
+      },
+      "id": "1",
+      "name": "Studio A Trigger",
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": "",
+        "watchFor": [
+          "eventCreated",
+          "eventUpdated"
+        ],
+        "options": {}
+      },
+      "id": "2",
+      "name": "Studio B Trigger",
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": "",
+        "watchFor": [
+          "eventCreated",
+          "eventUpdated"
+        ],
+        "options": {}
+      },
+      "id": "3",
+      "name": "Studio C Trigger",
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": "",
+        "watchFor": [
+          "eventCreated",
+          "eventUpdated"
+        ],
+        "options": {}
+      },
+      "id": "4",
+      "name": "Studio D Trigger",
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "calendar": "",
+        "watchFor": [
+          "eventCreated",
+          "eventUpdated"
+        ],
+        "options": {}
+      },
+      "id": "5",
+      "name": "Studio E Trigger",
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        600
+      ]
+    }
+  ],
+  "connections": {},
+  "settings": {},
+  "active": false
+}
