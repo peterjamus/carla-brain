@@ -3,34 +3,49 @@
   "nodes": [
     {
       "parameters": {
-        "calendar": "",
-        "watchFor": [
-          "eventCreated",
-          "eventUpdated"
-        ],
-        "options": {}
+        "httpMethod": "POST",
+        "path": "carla-create-booking",
+        "responseMode": "lastNode"
       },
-      "id": "1",
-      "name": "Calendar Trigger",
-      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "id": "Webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        100,
-        300
-      ]
+      "position": [100, 300]
     },
     {
       "parameters": {
-        "functionCode": "\nconst calendarId = $json.calendarId || $json.organizer?.email || \"unknown\";\nconst summary = ($json.summary || \"\").toLowerCase();\nconst description = ($json.description || \"\").toLowerCase();\n\nlet studioMap = {\n  \"c_259b4683777c9096f9c69f9ee334f7dfce523bf78094446db6b75471c9594d7d@group.calendar.google.com\": { studio: \"Studio A\", sku: \"studio-a\", checkfrontId: 5288 },\n  \"c_706e1925cfb58390b4e734997a4ef4db43ac60bddfb5af2e680a36c43c70e903@group.calendar.google.com\": { studio: \"Studio B\", sku: \"studio-b\", checkfrontId: 99834 },\n  \"c_7986ed0315a274fe7123bf3eed8df4b50b2326d8c757d5b9862ab63851dd1aae@group.calendar.google.com\": { studio: \"Studio C\", sku: \"studio-c\", checkfrontId: 99835 },\n  \"c_47c26649a6349f924321ec8650653f61fe8f640b99a48d1c72c21198951d0374@group.calendar.google.com\": { studio: \"Studio D\", sku: \"studio-d\", checkfrontId: 99836 },\n  \"c_6efcd9542c65a954bfb77ca8494e550ef00ba64136d1c5372ee6b7d2a2e9c04a@group.calendar.google.com\": { studio: \"Studio E\", sku: \"studio-e\", checkfrontId: 99837 }\n};\n\nconst meta = studioMap[calendarId] || { studio: \"Unknown\", sku: \"unknown\", checkfrontId: null };\nconst isHold = summary.includes(\"hold\") || description.includes(\"hold\");\n\nreturn [{\n  json: {\n    ...$json,\n    ...meta,\n    isHold\n  }\n}];\n"
+        "functionCode": "const body = $json;
+
+const calendarId = body.calendar_id || body.item_id || 'unknown';
+const description = (body.description || '').toLowerCase();
+const summary = (body.summary || '').toLowerCase();
+const isHold = summary.includes('hold') || description.includes('hold');
+
+const studioMap = {
+  'Studio A': { sku: 'studio-a', checkfrontId: 5288 },
+  'Studio B': { sku: 'studio-b', checkfrontId: 99834 },
+  'Studio C': { sku: 'studio-c', checkfrontId: 99835 },
+  'Studio D': { sku: 'studio-d', checkfrontId: 99836 },
+  'Studio E': { sku: 'studio-e', checkfrontId: 99837 }
+};
+
+const studioName = body.booking_item || body.studio || 'Studio B';
+const meta = studioMap[studioName] || { sku: 'unknown', checkfrontId: 99834 };
+
+return [{
+  json: {
+    ...body,
+    isHold,
+    ...meta
+  }
+}];"
       },
-      "id": "2",
-      "name": "Metadata + HOLD Detection",
+      "id": "Transform Metadata",
+      "name": "Transform Metadata",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        350,
-        300
-      ]
+      "position": [300, 300]
     },
     {
       "parameters": {
@@ -38,82 +53,68 @@
           "boolean": [
             {
               "value1": "={{ $json.isHold }}",
-              "operation": "equal",
               "value2": true
             }
           ]
         }
       },
-      "id": "3",
-      "name": "Is HOLD?",
+      "id": "Check if HOLD",
+      "name": "Check if HOLD",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [
-        600,
-        300
-      ]
+      "position": [500, 300]
     },
     {
       "parameters": {
-        "url": "https://your-checkfront-endpoint.com/api/booking",
-        "method": "POST",
+        "requestMethod": "POST",
+        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking",
         "jsonParameters": true,
-        "sendHeaders": true,
-        "headerParametersJson": "[{ \"name\": \"X-API-KEY\", \"value\": \"REPLACE_WITH_YOUR_KEY\" }]",
-        "bodyParametersJson": "\n{\n  \"item_id\": {{ $json.checkfrontId }},\n  \"status\": \"Reserved\",\n  \"notes\": \"Hold booking created via Google Calendar sync.\",\n  \"sku\": \"{{ $json.sku }}\",\n  \"start_date\": \"{{ $json.start }}\",\n  \"end_date\": \"{{ $json.end }}\"\n}\n"
+        "bodyParametersJson": "={\n  \"items\": {\n    \"99834\": {\n      \"qty\": 1,\n      \"date\": \"2025-05-28\",\n      \"start_time\": \"10:00\",\n      \"end_time\": \"12:00\"\n    }\n  },\n  \"customer\": {\n    \"first_name\": \"Webhook\",\n    \"last_name\": \"Test\",\n    \"email\": \"webhook@example.com\"\n  },\n  \"status\": \"PEND\"\n}"
       },
-      "id": "4",
+      "id": "Create HOLD Booking",
       "name": "Create HOLD Booking",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [
-        850,
-        200
-      ]
+      "position": [700, 200]
     },
     {
       "parameters": {
-        "url": "https://your-checkfront-endpoint.com/api/booking",
-        "method": "POST",
+        "requestMethod": "POST",
+        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking",
         "jsonParameters": true,
-        "sendHeaders": true,
-        "headerParametersJson": "[{ \"name\": \"X-API-KEY\", \"value\": \"REPLACE_WITH_YOUR_KEY\" }]",
-        "bodyParametersJson": "\n{\n  \"item_id\": {{ $json.checkfrontId }},\n  \"status\": \"Pending\",\n  \"notes\": \"Confirmed booking synced from calendar\",\n  \"sku\": \"{{ $json.sku }}\",\n  \"start_date\": \"{{ $json.start }}\",\n  \"end_date\": \"{{ $json.end }}\"\n}\n"
+        "bodyParametersJson": "={\n  \"items\": {\n    \"99834\": {\n      \"qty\": 1,\n      \"date\": \"2025-05-28\",\n      \"start_time\": \"10:00\",\n      \"end_time\": \"12:00\"\n    }\n  },\n  \"customer\": {\n    \"first_name\": \"Webhook\",\n    \"last_name\": \"Test\",\n    \"email\": \"webhook@example.com\"\n  },\n  \"status\": \"PEND\"\n}"
       },
-      "id": "5",
+      "id": "Create Confirmed Booking",
       "name": "Create Confirmed Booking",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [
-        850,
-        400
-      ]
+      "position": [700, 400]
     }
   ],
   "connections": {
-    "Calendar Trigger": {
+    "Webhook": {
       "main": [
         [
           {
-            "node": "Metadata + HOLD Detection",
+            "node": "Transform Metadata",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Metadata + HOLD Detection": {
+    "Transform Metadata": {
       "main": [
         [
           {
-            "node": "Is HOLD?",
+            "node": "Check if HOLD",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Is HOLD?": {
+    "Check if HOLD": {
       "main": [
         [
           {
@@ -132,6 +133,7 @@
       ]
     }
   },
+  "active": true,
   "settings": {},
-  "active": false
+  "id": "CARLA_Webhook_Sync"
 }
