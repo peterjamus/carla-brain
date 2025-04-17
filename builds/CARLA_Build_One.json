@@ -11,25 +11,7 @@
         "options": {}
       },
       "id": "1",
-      "name": "Studio A Trigger",
-      "type": "n8n-nodes-base.googleCalendarTrigger",
-      "typeVersion": 1,
-      "position": [
-        100,
-        200
-      ]
-    },
-    {
-      "parameters": {
-        "calendar": "",
-        "watchFor": [
-          "eventCreated",
-          "eventUpdated"
-        ],
-        "options": {}
-      },
-      "id": "2",
-      "name": "Studio B Trigger",
+      "name": "Calendar Trigger",
       "type": "n8n-nodes-base.googleCalendarTrigger",
       "typeVersion": 1,
       "position": [
@@ -39,60 +21,117 @@
     },
     {
       "parameters": {
-        "calendar": "",
-        "watchFor": [
-          "eventCreated",
-          "eventUpdated"
-        ],
-        "options": {}
+        "functionCode": "\nconst calendarId = $json.calendarId || $json.organizer?.email || \"unknown\";\nconst summary = ($json.summary || \"\").toLowerCase();\nconst description = ($json.description || \"\").toLowerCase();\n\nlet studioMap = {\n  \"c_259b4683777c9096f9c69f9ee334f7dfce523bf78094446db6b75471c9594d7d@group.calendar.google.com\": { studio: \"Studio A\", sku: \"studio-a\", checkfrontId: 5288 },\n  \"c_706e1925cfb58390b4e734997a4ef4db43ac60bddfb5af2e680a36c43c70e903@group.calendar.google.com\": { studio: \"Studio B\", sku: \"studio-b\", checkfrontId: 99834 },\n  \"c_7986ed0315a274fe7123bf3eed8df4b50b2326d8c757d5b9862ab63851dd1aae@group.calendar.google.com\": { studio: \"Studio C\", sku: \"studio-c\", checkfrontId: 99835 },\n  \"c_47c26649a6349f924321ec8650653f61fe8f640b99a48d1c72c21198951d0374@group.calendar.google.com\": { studio: \"Studio D\", sku: \"studio-d\", checkfrontId: 99836 },\n  \"c_6efcd9542c65a954bfb77ca8494e550ef00ba64136d1c5372ee6b7d2a2e9c04a@group.calendar.google.com\": { studio: \"Studio E\", sku: \"studio-e\", checkfrontId: 99837 }\n};\n\nconst meta = studioMap[calendarId] || { studio: \"Unknown\", sku: \"unknown\", checkfrontId: null };\nconst isHold = summary.includes(\"hold\") || description.includes(\"hold\");\n\nreturn [{\n  json: {\n    ...$json,\n    ...meta,\n    isHold\n  }\n}];\n"
+      },
+      "id": "2",
+      "name": "Metadata + HOLD Detection",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.isHold }}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
       },
       "id": "3",
-      "name": "Studio C Trigger",
-      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "name": "Is HOLD?",
+      "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        100,
-        400
+        600,
+        300
       ]
     },
     {
       "parameters": {
-        "calendar": "",
-        "watchFor": [
-          "eventCreated",
-          "eventUpdated"
-        ],
-        "options": {}
+        "url": "https://your-checkfront-endpoint.com/api/booking",
+        "method": "POST",
+        "jsonParameters": true,
+        "sendHeaders": true,
+        "headerParametersJson": "[{ \"name\": \"X-API-KEY\", \"value\": \"REPLACE_WITH_YOUR_KEY\" }]",
+        "bodyParametersJson": "\n{\n  \"item_id\": {{ $json.checkfrontId }},\n  \"status\": \"Reserved\",\n  \"notes\": \"Hold booking created via Google Calendar sync.\",\n  \"sku\": \"{{ $json.sku }}\",\n  \"start_date\": \"{{ $json.start }}\",\n  \"end_date\": \"{{ $json.end }}\"\n}\n"
       },
       "id": "4",
-      "name": "Studio D Trigger",
-      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "name": "Create HOLD Booking",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [
-        100,
-        500
+        850,
+        200
       ]
     },
     {
       "parameters": {
-        "calendar": "",
-        "watchFor": [
-          "eventCreated",
-          "eventUpdated"
-        ],
-        "options": {}
+        "url": "https://your-checkfront-endpoint.com/api/booking",
+        "method": "POST",
+        "jsonParameters": true,
+        "sendHeaders": true,
+        "headerParametersJson": "[{ \"name\": \"X-API-KEY\", \"value\": \"REPLACE_WITH_YOUR_KEY\" }]",
+        "bodyParametersJson": "\n{\n  \"item_id\": {{ $json.checkfrontId }},\n  \"status\": \"Pending\",\n  \"notes\": \"Confirmed booking synced from calendar\",\n  \"sku\": \"{{ $json.sku }}\",\n  \"start_date\": \"{{ $json.start }}\",\n  \"end_date\": \"{{ $json.end }}\"\n}\n"
       },
       "id": "5",
-      "name": "Studio E Trigger",
-      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "name": "Create Confirmed Booking",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [
-        100,
-        600
+        850,
+        400
       ]
     }
   ],
-  "connections": {},
+  "connections": {
+    "Calendar Trigger": {
+      "main": [
+        [
+          {
+            "node": "Metadata + HOLD Detection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metadata + HOLD Detection": {
+      "main": [
+        [
+          {
+            "node": "Is HOLD?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is HOLD?": {
+      "main": [
+        [
+          {
+            "node": "Create HOLD Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Confirmed Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
   "settings": {},
   "active": false
 }
