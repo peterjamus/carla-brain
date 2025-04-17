@@ -1,70 +1,99 @@
 {
-  "name": "CARLA_Build_One",
+  "name": "CARLA Webhook Auth",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "carla-create-booking",
-        "responseMode": "lastNode"
+        "responseMode": "onLastNode",
+        "options": {}
       },
       "id": "Webhook",
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [100, 300]
-    },
-    {
-      "parameters": {
-        "functionCode": "const body = $json;\n\nconst calendarId = body.calendar_id || body.item_id || 'unknown';\nconst description = (body.description || '').toLowerCase();\nconst summary = (body.summary || '').toLowerCase();\nconst isHold = summary.includes('hold') || description.includes('hold');\n\nconst studioMap = {\n  'Studio A': { sku: 'studio-a', checkfrontId: 5288 },\n  'Studio B': { sku: 'studio-b', checkfrontId: 99834 },\n  'Studio C': { sku: 'studio-c', checkfrontId: 99835 },\n  'Studio D': { sku: 'studio-d', checkfrontId: 99836 },\n  'Studio E': { sku: 'studio-e', checkfrontId: 99837 }\n};\n\nconst studioName = body.booking_item || body.studio || 'Studio B';\nconst meta = studioMap[studioName] || { sku: 'unknown', checkfrontId: 99834 };\n\nreturn [{\n  json: {\n    ...body,\n    isHold,\n    ...meta\n  }\n}];"
-      },
-      "id": "Transform Metadata",
-      "name": "Transform Metadata",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [300, 300]
+      "position": [
+        200,
+        300
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "boolean": [
+          "boolean": [],
+          "string": [
             {
-              "value1": "={{ $json.isHold }}",
-              "value2": true
+              "value1": "={{$query.token}}",
+              "operation": "equal",
+              "value2": "supersecrettoken123"
             }
           ]
         }
       },
-      "id": "Check if HOLD",
-      "name": "Check if HOLD",
+      "id": "Check Token",
+      "name": "Check Token",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [500, 300]
+      "position": [
+        400,
+        300
+      ]
     },
     {
       "parameters": {
-        "requestMethod": "POST",
-        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking",
-        "jsonParameters": true,
-        "bodyParametersJson": "{\"items\":{\"99834\":{\"qty\":1,\"date\":\"2025-05-28\",\"start_time\":\"10:00\",\"end_time\":\"12:00\"}},\"customer\":{\"first_name\":\"Webhook\",\"last_name\":\"Test\",\"email\":\"webhook@example.com\"},\"status\":\"HOLD\"}"
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "Unauthorized"
+            }
+          ]
+        }
       },
-      "id": "Create HOLD Booking",
-      "name": "Create HOLD Booking",
-      "type": "n8n-nodes-base.httpRequest",
+      "id": "Set Unauthorized",
+      "name": "Set Unauthorized",
+      "type": "n8n-nodes-base.set",
       "typeVersion": 1,
-      "position": [700, 200]
+      "position": [
+        600,
+        450
+      ]
     },
     {
       "parameters": {
-        "requestMethod": "POST",
-        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking",
-        "jsonParameters": true,
-        "bodyParametersJson": "{\"items\":{\"99834\":{\"qty\":1,\"date\":\"2025-05-28\",\"start_time\":\"10:00\",\"end_time\":\"12:00\"}},\"customer\":{\"first_name\":\"Webhook\",\"last_name\":\"Test\",\"email\":\"webhook@example.com\"},\"status\":\"PEND\"}"
+        "responseCode": 403,
+        "responseMode": "lastNode",
+        "options": {},
+        "responseData": "={{$json[\"message\"]}}"
       },
-      "id": "Create Confirmed Booking",
-      "name": "Create Confirmed Booking",
-      "type": "n8n-nodes-base.httpRequest",
+      "id": "HTTP 403",
+      "name": "HTTP 403",
+      "type": "n8n-nodes-base.httpResponse",
       "typeVersion": 1,
-      "position": [700, 400]
+      "position": [
+        800,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "Token accepted. You may proceed."
+            }
+          ]
+        }
+      },
+      "id": "Set OK",
+      "name": "Set OK",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        600,
+        150
+      ]
     }
   ],
   "connections": {
@@ -72,44 +101,41 @@
       "main": [
         [
           {
-            "node": "Transform Metadata",
+            "node": "Check Token",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Transform Metadata": {
+    "Check Token": {
       "main": [
         [
           {
-            "node": "Check if HOLD",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check if HOLD": {
-      "main": [
-        [
-          {
-            "node": "Create HOLD Booking",
+            "node": "Set OK",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Create Confirmed Booking",
+            "node": "Set Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Unauthorized": {
+      "main": [
+        [
+          {
+            "node": "HTTP 403",
             "type": "main",
             "index": 0
           }
         ]
       ]
     }
-  },
-  "active": true,
-  "settings": {},
-  "id": "CARLA_Webhook_Sync"
+  }
 }
