@@ -1,82 +1,76 @@
 {
-  "name": "CARLA_Build_One",
+  "name": "CARLA: Booking Modified",
   "nodes": [
     {
       "parameters": {
         "path": "carla-booking-modified",
-        "responseMode": "onLastNode",
-        "responseData": "firstEntryJson",
+        "responseMode": "lastNode",
         "options": {},
-        "authentication": "none"
+        "httpMethod": "POST"
       },
-      "id": "webhookBookingModified",
+      "id": "Webhook_Booking_Modified",
       "name": "Webhook: Booking Modified",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [300, 200]
+      "position": [200, 300]
     },
     {
       "parameters": {
-        "functionCode": "const auth = $json.headers['authorization'];\nif (auth !== 'Bearer yeehaw') {\n  throw new Error('Unauthorized: Missing or incorrect token');\n}\nreturn items;"
+        "value1": "={{$json[\"booking\"][\"status\"]}}",
+        "rules": [
+          {
+            "value2": "Cancelled",
+            "operation": "equal"
+          }
+        ]
       },
-      "id": "verifyHeaderToken",
-      "name": "Verify Header Token",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [520, 200]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{$json.body.status}}",
-              "operation": "equal",
-              "value2": "CANCELLED"
-            }
-          ]
-        }
-      },
-      "id": "switchStatus",
+      "id": "Switch_Booking_Status",
       "name": "Switch: Booking Status",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 1,
-      "position": [740, 200]
+      "position": [450, 300]
     },
     {
       "parameters": {
-        "functionCode": "// Placeholder: sync cancellation with Google Calendar\nreturn items;"
+        "functionCode": "// Logic for handling cancelled bookings\nreturn items;"
       },
-      "id": "handleCancel",
+      "id": "Handle_Cancelled_Booking",
       "name": "Handle Cancelled Booking",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [960, 100]
+      "position": [700, 200]
     },
     {
       "parameters": {
-        "functionCode": "// Placeholder: update booking info in Checkfront and Google Calendar\nreturn items;"
+        "functionCode": "// Logic for handling booking edits\nreturn items;"
       },
-      "id": "handleEdit",
+      "id": "Handle_Booking_Edit",
       "name": "Handle Booking Edit",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [960, 300]
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "Booking update handled successfully"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "Set_Success_Response",
+      "name": "Set Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [900, 300]
     }
   ],
   "connections": {
     "Webhook: Booking Modified": {
-      "main": [
-        [
-          {
-            "node": "Verify Header Token",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Verify Header Token": {
       "main": [
         [
           {
@@ -104,9 +98,31 @@
           }
         ]
       ]
+    },
+    "Handle Cancelled Booking": {
+      "main": [
+        [
+          {
+            "node": "Set Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Booking Edit": {
+      "main": [
+        [
+          {
+            "node": "Set Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {},
-  "id": "carla-booking-modified-flow"
+  "versionId": "booking-modified-02"
 }
