@@ -1,121 +1,116 @@
 {
-  // CARLA_Build_One_Final.json
-  // Purpose: Complete Google Calendar → Checkfront sync flow with logging, hold detection, and calendar event translation.
-
-  "meta": {
-    "version": "1.0.0-final",
-    "description": "Calendar to Checkfront automation with HOLD detection and Discord logs",
-    "status": "active",
-    "includes": [
-      "Google Calendar Trigger",
-      "Studio + SKU Mapper",
-      "Checkfront Booking Creator",
-      "HOLD Booking Logic",
-      "Discord Sync Log Output"
-    ]
-  },
-
-  "triggers": [
+  "name": "CARLA Build One",
+  "nodes": [
     {
-      "type": "Google Calendar Trigger",
-      "studioCalendars": [
-        {
-          "calendarId": "c_706e1925cfb58390b4e734997a4ef4db43ac60bddfb5af2e680a36c43c70e903@group.calendar.google.com",
-          "sku": "studio-b",
-          "checkfrontId": 99834
-        },
-        {
-          "calendarId": "c_259b4683777c9096f9c69f9ee334f7dfce523bf78094446db6b75471c9594d7d@group.calendar.google.com",
-          "sku": "studio-a",
-          "checkfrontId": 5288
+      "parameters": {
+        "calendar": "c_706e1925cfb58390b4e734997a4ef4db43ac60bddfb5af2e680a36c43c70e903@group.calendar.google.com",
+        "operation": "watchEvents",
+        "event": "eventCreated",
+        "timezone": "America/New_York"
+      },
+      "name": "Watch Studio B Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [300, 200],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "YOUR_GOOGLE_CALENDAR_CRED_ID",
+          "name": "Google Calendar"
         }
-        // ... Add other studios here
-      ],
-      "detect": ["create", "update", "cancel"]
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.summary}}",
+              "operation": "contains",
+              "value2": "HOLD"
+            }
+          ]
+        }
+      },
+      "name": "Is HOLD Booking?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [500, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking/create",
+        "method": "POST",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "={ \n  \"items\": {\n    \"99834\": {\n      \"qty\": 1,\n      \"date\": \"{{ $json.start.dateTime.split('T')[0] }}\",\n      \"start_time\": \"{{ $json.start.dateTime.split('T')[1].split('-')[0].substring(0,5) }}\",\n      \"end_time\": \"{{ $json.end.dateTime.split('T')[1].split('-')[0].substring(0,5) }}\"\n    }\n  },\n  \"customer\": {\n    \"first_name\": \"Unknown\",\n    \"last_name\": \"Client\",\n    \"email\": \"hello@centrastudios.com\"\n  },\n  \"status\": \"HOLD\"\n}"
+      },
+      "name": "Create Hold in Checkfront",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [750, 100],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "YOUR_CHECKFRONT_API_CRED_ID",
+          "name": "Checkfront"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://discord.com/api/v9/channels/1361740873334919299/messages",
+        "method": "POST",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\n  \"content\": \"New HOLD booking pushed to Checkfront from Google Calendar.\"\n}"
+      },
+      "name": "Log to Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [950, 100],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_DISCORD_AUTH_CRED_ID",
+          "name": "Discord Bot Token"
+        }
+      }
     }
   ],
-
-  "actions": [
-    {
-      "name": "Normalize Incoming Event",
-      "type": "Function",
-      "code": "// Extract date, time, attendee, description, and HOLD detection\nreturn items.map(item => {\n  const summary = item.json.summary || '';\n  const isHold = summary.toLowerCase().includes('hold');\n  const start = item.json.start.dateTime;\n  const end = item.json.end.dateTime;\n\n  return {\n    json: {\n      ...item.json,\n      studio: 'Studio B', // Replace with logic later\n      sku: 'studio-b',\n      checkfrontId: 99834,\n      isHold,\n      startDate: start.split('T')[0],\n      startTime: start.split('T')[1].slice(0,5),\n      endTime: end.split('T')[1].slice(0,5)\n    }\n  };\n});"
-    },
-
-    {
-      "name": "Check for HOLD",
-      "type": "Switch",
-      "rules": [
-        {
-          "value1": "={{$json[\"isHold\"]}}",
-          "operation": "equal",
-          "value2": true
-        }
-      ],
-      "outputs": [
-        "CreateHoldBooking",
-        "CreateConfirmedBooking"
+  "connections": {
+    "Watch Studio B Calendar": {
+      "main": [
+        [
+          {
+            "node": "Is HOLD Booking?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-
-    {
-      "name": "CreateConfirmedBooking",
-      "type": "HTTP Request",
-      "method": "POST",
-      "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking/create",
-      "headers": {
-        "X-APP-APIKEY": "YOUR_API_KEY_HERE"
-      },
-      "jsonBody": {
-        "items": {
-          "={{$json[\"checkfrontId\"]}}": {
-            "qty": 1,
-            "date": "={{$json[\"startDate\"]}}",
-            "start_time": "={{$json[\"startTime\"]}}",
-            "end_time": "={{$json[\"endTime\"]}}"
+    "Is HOLD Booking?": {
+      "main": [
+        [
+          {
+            "node": "Create Hold in Checkfront",
+            "type": "main",
+            "index": 0
           }
-        },
-        "customer": {
-          "first_name": "Unknown",
-          "last_name": "Client",
-          "email": "hello@centrastudios.com"
-        },
-        "status": "PEND"
-      }
+        ],
+        []
+      ]
     },
-
-    {
-      "name": "CreateHoldBooking",
-      "type": "HTTP Request",
-      "method": "POST",
-      "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking/create",
-      "headers": {
-        "X-APP-APIKEY": "YOUR_API_KEY_HERE"
-      },
-      "jsonBody": {
-        "items": {
-          "={{$json[\"checkfrontId\"]}}": {
-            "qty": 1,
-            "date": "={{$json[\"startDate\"]}}",
-            "start_time": "={{$json[\"startTime\"]}}",
-            "end_time": "={{$json[\"endTime\"]}}"
+    "Create Hold in Checkfront": {
+      "main": [
+        [
+          {
+            "node": "Log to Discord",
+            "type": "main",
+            "index": 0
           }
-        },
-        "customer": {
-          "first_name": "HOLD",
-          "last_name": "Request",
-          "email": "hello@centrastudios.com"
-        },
-        "status": "HOLD"
-      }
-    },
-
-    {
-      "name": "Send to Discord Log",
-      "type": "Discord",
-      "credentials": "Discord API",
-      "channelId": "1361740873334919299",
-      "message": "New event processed → {{$json.summary}} | Status: {{$json.status}} | Studio: {{$json.studio}}"
+        ]
+      ]
     }
-  ]
+  },
+  "active": false,
+  "settings": {},
+  "id": "carla_build_one_phase_1"
 }
