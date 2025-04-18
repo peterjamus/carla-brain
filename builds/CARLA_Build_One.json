@@ -1,113 +1,115 @@
-
 {
-  "meta": {
-    "version": "2.0",
-    "description": "Phase 2: Bi-directional booking sync, HOLD logic, deduplication, logging",
-    "workflowName": "CARLA_Build_Two"
-  },
-  "features": [
-    "Google Calendar event updates trigger Checkfront edits",
-    "GCal deletions cancel Checkfront bookings",
-    "Checkfront webhooks update GCal entries",
-    "HOLD detection from both GCal + Checkfront",
-    "Deduplication of bookings",
-    "Optional Discord logging (not yet active)"
-  ],
+  "name": "CARLA_Build_Two",
   "nodes": [
     {
-      "name": "Google Calendar Trigger",
-      "type": "trigger",
-      "action": "onEventCreatedOrUpdated",
-      "studios": ["Studio A", "Studio B", "Studio C", "Studio D", "Studio E"]
-    },
-    {
-      "name": "Parse GCal Booking",
-      "type": "function",
-      "action": "extract booking metadata, studio, status, isHold"
-    },
-    {
-      "name": "Find Existing Checkfront Booking",
-      "type": "httpRequest",
-      "action": "GET /booking",
-      "match": "by event ID or time range"
-    },
-    {
-      "name": "Create or Update Booking",
-      "type": "switch",
-      "cases": [
-        "isHold === true → Create HOLD booking",
-        "notFound → Create booking",
-        "found → Update existing"
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "carla-booking-modified",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Booking Modified",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
       ]
     },
     {
-      "name": "Create Checkfront Booking",
-      "type": "httpRequest",
-      "action": "POST /booking/create",
-      "headers": ["API Key"],
-      "body": "compiled from GCal metadata"
-    },
-    {
-      "name": "Update Checkfront Booking",
-      "type": "httpRequest",
-      "action": "POST /booking/update",
-      "headers": ["API Key"],
-      "body": "updated metadata"
-    },
-    {
-      "name": "Cancel Checkfront Booking",
-      "type": "httpRequest",
-      "action": "POST /booking/cancel",
-      "when": "GCal event deleted"
-    },
-    {
-      "name": "Checkfront Webhook: Booking Changed",
-      "type": "webhook",
-      "url": "carla-booking-modified",
-      "action": "Parse + reflect booking change back into GCal"
-    },
-    {
-      "name": "Parse Checkfront Webhook",
-      "type": "function",
-      "action": "extract booking_id, status, item, date"
-    },
-    {
-      "name": "Sync to Google Calendar",
-      "type": "httpRequest",
-      "action": "PATCH /calendar/v3/events",
-      "includes": ["time", "title", "status"]
-    },
-    {
-      "name": "Deduplication + Status Switch",
-      "type": "switch",
-      "logic": [
-        "skip if already matched",
-        "route by booking status: Confirmed vs Cancelled vs Hold"
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.status }}",
+              "operation": "equal",
+              "value2": "Cancelled"
+            }
+          ]
+        }
+      },
+      "id": "2",
+      "name": "Booking Status Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        300,
+        300
       ]
     },
     {
-      "name": "Log to Console",
-      "type": "function",
-      "enabled": true
+      "parameters": {
+        "channel": "1361740873334919299",
+        "text": "Booking modified: {{$json.body.id}} for {{$json.body.customer.first_name}} {{$json.body.customer.last_name}} - {{$json.body.status}}"
+      },
+      "id": "3",
+      "name": "Log to Discord - Sync Log",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "credentials": {
+        "discordApi": {
+          "id": "discord-api-credentials",
+          "name": "Discord API Credentials"
+        }
+      }
     },
     {
-      "name": "Log to Discord (future)",
-      "type": "webhook",
-      "url": "carla-discord-log",
-      "enabled": false
+      "parameters": {
+        "channel": "1361740893610315928",
+        "text": "Cancelled Booking: {{$json.body.id}}"
+      },
+      "id": "4",
+      "name": "Log to Discord - AI Interface",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        500,
+        100
+      ],
+      "credentials": {
+        "discordApi": {
+          "id": "discord-api-credentials",
+          "name": "Discord API Credentials"
+        }
+      }
     }
   ],
-  "webhooks": [
-    {
-      "name": "carla-booking-modified",
-      "token": "",
-      "method": "POST",
-      "active": true
+  "connections": {
+    "Webhook Booking Modified": {
+      "main": [
+        [
+          {
+            "node": "Booking Status Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Booking Status Switch": {
+      "main": [
+        [
+          {
+            "node": "Log to Discord - AI Interface",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log to Discord - Sync Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
-  ],
-  "status": "Ready for deployment",
-  "deployment": {
-    "destination": "/volume1/docker/carla/carla-brain/builds/CARLA_Build_Two.json",
-    "alias": "yeehaw"
-  }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1744948833.771942"
 }
