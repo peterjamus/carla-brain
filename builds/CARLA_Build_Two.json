@@ -1,0 +1,96 @@
+{
+  "label": "CARLA Build Two",
+  "nodes": [
+    {
+      "parameters": {
+        "calendar": "your-calendar-id",
+        "operation": "watchEvents"
+      },
+      "id": "Google Calendar Trigger",
+      "name": "Google Calendar Trigger",
+      "type": "n8n-nodes-base.googleCalendarTrigger",
+      "typeVersion": 1,
+      "position": [200, 100]
+    },
+    {
+      "parameters": {
+        "mode": "passThrough"
+      },
+      "id": "Routing Node",
+      "name": "Switch: Event Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [400, 100]
+    },
+    {
+      "parameters": {
+        "authentication": "Basic Auth",
+        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking",
+        "options": {},
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"items\": {\n    \"99834\": {\n      \"qty\": 1,\n      \"date\": \"{{ $json.start.date }}\",\n      \"start_time\": \"10:00\",\n      \"end_time\": \"12:00\"\n    }\n  },\n  \"customer\": {\n    \"first_name\": \"{{ $json.summary.split(' ')[0] }}\",\n    \"last_name\": \"Test\",\n    \"email\": \"fake@example.com\"\n  },\n  \"status\": \"PEND\"\n}"
+      },
+      "id": "Create Checkfront Booking",
+      "name": "HTTP - Checkfront Create Booking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 50]
+    },
+    {
+      "parameters": {
+        "channel": "1361740873334919299",
+        "text": "✅ Created Checkfront booking for {{ $json.summary }} on {{ $json.start.date }}"
+      },
+      "id": "Discord Logger",
+      "name": "Discord Log Booking",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [850, 50]
+    },
+    {
+      "parameters": {
+        "authentication": "Basic Auth",
+        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking/{{ $json.booking_id }}/update",
+        "options": {},
+        "jsonParameters": true,
+        "bodyParametersJson": "{\"status_id\": \"STOP\"}"
+      },
+      "id": "Cancel Checkfront Booking",
+      "name": "HTTP - Checkfront Cancel Booking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 250]
+    },
+    {
+      "parameters": {
+        "channel": "1361740873334919299",
+        "text": "❌ Cancelled Checkfront booking ID {{ $json.booking_id }}"
+      },
+      "id": "Discord Cancel Log",
+      "name": "Discord Log Cancel",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [850, 250]
+    }
+  ],
+  "connections": {
+    "Google Calendar Trigger": {
+      "main": [[{"node": "Switch: Event Type", "type": "main", "index": 0}]]
+    },
+    "Switch: Event Type": {
+      "main": [
+        [
+          {"node": "HTTP - Checkfront Create Booking", "type": "main", "index": 0},
+          {"node": "HTTP - Checkfront Cancel Booking", "type": "main", "index": 1}
+        ]
+      ]
+    },
+    "HTTP - Checkfront Create Booking": {
+      "main": [[{"node": "Discord Log Booking", "type": "main", "index": 0}]]
+    },
+    "HTTP - Checkfront Cancel Booking": {
+      "main": [[{"node": "Discord Log Cancel", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false
+}
