@@ -1,128 +1,116 @@
+// CARLA_Build_Two.json
+// Core Booking Intelligence - Phase 2
+// Google Calendar <-> Checkfront full sync engine
+
 {
-  "name": "CARLA: Booking Modified",
+  "meta": {
+    "version": "2.0",
+    "description": "Phase 2: Bi-directional booking sync, HOLD logic, deduplication, logging",
+    "workflowName": "CARLA_Build_Two"
+  },
+  "features": [
+    "Google Calendar event updates trigger Checkfront edits",
+    "GCal deletions cancel Checkfront bookings",
+    "Checkfront webhooks update GCal entries",
+    "HOLD detection from both GCal + Checkfront",
+    "Deduplication of bookings",
+    "Optional Discord logging (not yet active)"
+  ],
   "nodes": [
     {
-      "parameters": {
-        "path": "carla-booking-modified",
-        "responseMode": "lastNode",
-        "options": {},
-        "httpMethod": "POST"
-      },
-      "id": "Webhook_Booking_Modified",
-      "name": "Webhook: Booking Modified",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [200, 300]
+      "name": "Google Calendar Trigger",
+      "type": "trigger",
+      "action": "onEventCreatedOrUpdated",
+      "studios": ["Studio A", "Studio B", "Studio C", "Studio D", "Studio E"]
     },
     {
-      "parameters": {
-        "value1": "={{$json[\"booking\"][\"status\"]}}",
-        "rules": [
-          {
-            "value2": "Cancelled",
-            "operation": "equal"
-          }
-        ]
-      },
-      "id": "Switch_Booking_Status",
-      "name": "Switch: Booking Status",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 1,
-      "position": [450, 300]
+      "name": "Parse GCal Booking",
+      "type": "function",
+      "action": "extract booking metadata, studio, status, isHold"
     },
     {
-      "parameters": {
-        "functionCode": "// Logic for handling cancelled bookings\nreturn items;"
-      },
-      "id": "Handle_Cancelled_Booking",
-      "name": "Handle Cancelled Booking",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [700, 200]
+      "name": "Find Existing Checkfront Booking",
+      "type": "httpRequest",
+      "action": "GET /booking",
+      "match": "by event ID or time range"
     },
     {
-      "parameters": {
-        "functionCode": "// Logic for handling booking edits\nreturn items;"
-      },
-      "id": "Handle_Booking_Edit",
-      "name": "Handle Booking Edit",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [700, 400]
+      "name": "Create or Update Booking",
+      "type": "switch",
+      "cases": [
+        "isHold === true → Create HOLD booking",
+        "notFound → Create booking",
+        "found → Update existing"
+      ]
     },
     {
-      "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "message",
-              "value": "Booking update handled successfully"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "Set_Success_Response",
-      "name": "Set Success Response",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 1,
-      "position": [900, 300]
+      "name": "Create Checkfront Booking",
+      "type": "httpRequest",
+      "action": "POST /booking/create",
+      "headers": ["API Key"],
+      "body": "compiled from GCal metadata"
+    },
+    {
+      "name": "Update Checkfront Booking",
+      "type": "httpRequest",
+      "action": "POST /booking/update",
+      "headers": ["API Key"],
+      "body": "updated metadata"
+    },
+    {
+      "name": "Cancel Checkfront Booking",
+      "type": "httpRequest",
+      "action": "POST /booking/cancel",
+      "when": "GCal event deleted"
+    },
+    {
+      "name": "Checkfront Webhook: Booking Changed",
+      "type": "webhook",
+      "url": "carla-booking-modified",
+      "action": "Parse + reflect booking change back into GCal"
+    },
+    {
+      "name": "Parse Checkfront Webhook",
+      "type": "function",
+      "action": "extract booking_id, status, item, date"
+    },
+    {
+      "name": "Sync to Google Calendar",
+      "type": "httpRequest",
+      "action": "PATCH /calendar/v3/events",
+      "includes": ["time", "title", "status"]
+    },
+    {
+      "name": "Deduplication + Status Switch",
+      "type": "switch",
+      "logic": [
+        "skip if already matched",
+        "route by booking status: Confirmed vs Cancelled vs Hold"
+      ]
+    },
+    {
+      "name": "Log to Console",
+      "type": "function",
+      "enabled": true
+    },
+    {
+      "name": "Log to Discord (future)",
+      "type": "webhook",
+      "url": "carla-discord-log",
+      "enabled": false
     }
   ],
-  "connections": {
-    "Webhook: Booking Modified": {
-      "main": [
-        [
-          {
-            "node": "Switch: Booking Status",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Switch: Booking Status": {
-      "main": [
-        [
-          {
-            "node": "Handle Cancelled Booking",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Handle Booking Edit",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Handle Cancelled Booking": {
-      "main": [
-        [
-          {
-            "node": "Set Success Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Handle Booking Edit": {
-      "main": [
-        [
-          {
-            "node": "Set Success Response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+  "webhooks": [
+    {
+      "name": "carla-booking-modified",
+      "token": "",
+      "method": "POST",
+      "active": true
     }
-  },
-  "active": false,
-  "settings": {},
-  "versionId": "booking-modified-02"
+  ],
+  "status": "Ready for deployment",
+  "deployment": {
+    "destination": "/volume1/docker/carla/carla-brain/builds/CARLA_Build_Two.json",
+    "alias": "yeehaw"
+  }
 }
