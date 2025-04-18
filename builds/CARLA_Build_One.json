@@ -1,66 +1,112 @@
 {
-  "name": "CARLA: Checkfront Webhook Flow",
+  "name": "CARLA_Build_One",
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "carla-create-booking",
-        "authentication": "none",
-        "responseCode": 200,
-        "responseMode": "lastNode",
-        "responseData": "firstEntryJson"
+        "path": "carla-booking-modified",
+        "responseMode": "onLastNode",
+        "responseData": "firstEntryJson",
+        "options": {},
+        "authentication": "none"
       },
-      "id": "WebhookCreate",
-      "name": "Webhook: Create Booking",
+      "id": "webhookBookingModified",
+      "name": "Webhook: Booking Modified",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [300, 300]
+      "position": [300, 200]
     },
     {
       "parameters": {
         "functionCode": "const auth = $json.headers['authorization'];\nif (auth !== 'Bearer yeehaw') {\n  throw new Error('Unauthorized: Missing or incorrect token');\n}\nreturn items;"
       },
-      "id": "VerifyToken",
+      "id": "verifyHeaderToken",
       "name": "Verify Header Token",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [500, 300]
+      "position": [520, 200]
     },
     {
       "parameters": {
-        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking/create",
-        "method": "POST",
-        "authentication": "none",
-        "responseFormat": "json",
-        "jsonParameters": true,
-        "options": {},
-        "bodyParametersJson": "{\n  \"items\": {\n    \"99834\": {\n      \"qty\": 1,\n      \"date\": \"={{ $json.body.items['99834'].date }}\",\n      \"start_time\": \"={{ $json.body.items['99834'].start_time }}\",\n      \"end_time\": \"={{ $json.body.items['99834'].end_time }}\"\n    }\n  },\n  \"customer\": {\n    \"first_name\": \"={{ $json.body.customer.first_name }}\",\n    \"last_name\": \"={{ $json.body.customer.last_name }}\",\n    \"email\": \"={{ $json.body.customer.email }}\"\n  },\n  \"status\": \"={{ $json.body.status }}\"\n}"
-      },
-      "id": "CheckfrontCreate",
-      "name": "Create Booking in Checkfront",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 1,
-      "position": [700, 300],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "Checkfront-API-Header-Auth",
-          "name": "Checkfront Header Auth"
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body.status}}",
+              "operation": "equal",
+              "value2": "CANCELLED"
+            }
+          ]
         }
       },
-      "headers": {
-        "headerParametersJson": "[{\"name\": \"X-APP-APIKEY\", \"value\": \"1c4e8b53ef94de353a2ed031d41fb47e4f6edc7c\"}]"
-      }
+      "id": "switchStatus",
+      "name": "Switch: Booking Status",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [740, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Placeholder: sync cancellation with Google Calendar\nreturn items;"
+      },
+      "id": "handleCancel",
+      "name": "Handle Cancelled Booking",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [960, 100]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Placeholder: update booking info in Checkfront and Google Calendar\nreturn items;"
+      },
+      "id": "handleEdit",
+      "name": "Handle Booking Edit",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [960, 300]
     }
   ],
   "connections": {
-    "Webhook: Create Booking": {
-      "main": [[{"node": "Verify Header Token","type": "main","index": 0}]]
+    "Webhook: Booking Modified": {
+      "main": [
+        [
+          {
+            "node": "Verify Header Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Verify Header Token": {
-      "main": [[{"node": "Create Booking in Checkfront","type": "main","index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Switch: Booking Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch: Booking Status": {
+      "main": [
+        [
+          {
+            "node": "Handle Cancelled Booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Booking Edit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {},
-  "versionId": "carla-webhook-checkfront-test"
+  "id": "carla-booking-modified-flow"
 }
