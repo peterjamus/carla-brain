@@ -1,102 +1,66 @@
 {
-  "name": "CARLA_Build_One",
+  "name": "CARLA: Checkfront Webhook Flow",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "carla-create-booking",
-        "authentication": "headerAuth",
-        "headerAuth": "Header Auth account 2",
-        "responseMode": "onLastNode",
-        "options": {},
+        "authentication": "none",
         "responseCode": 200,
+        "responseMode": "lastNode",
         "responseData": "firstEntryJson"
       },
-      "id": "Webhook_Create",
+      "id": "WebhookCreate",
       "name": "Webhook: Create Booking",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [200, 0]
+      "position": [300, 300]
     },
     {
       "parameters": {
         "functionCode": "const auth = $json.headers['authorization'];\nif (auth !== 'Bearer yeehaw') {\n  throw new Error('Unauthorized: Missing or incorrect token');\n}\nreturn items;"
       },
-      "id": "Header_Validation",
+      "id": "VerifyToken",
       "name": "Verify Header Token",
       "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [400, 0]
+      "position": [500, 300]
     },
     {
       "parameters": {
-        "functionCode": "// TODO: Translate Checkfront booking into internal Google Calendar event\nreturn items;"
-      },
-      "id": "Process_Create",
-      "name": "Process Booking (Create)",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [600, 0]
-    },
-
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "carla-update-calendar",
-        "authentication": "headerAuth",
-        "headerAuth": "Header Auth account 2",
-        "responseMode": "onLastNode",
+        "url": "https://centra-studios.manage.na1.bookingplatform.app/api/3.0/booking/create",
+        "method": "POST",
+        "authentication": "none",
+        "responseFormat": "json",
+        "jsonParameters": true,
         "options": {},
-        "responseCode": 200,
-        "responseData": "firstEntryJson"
+        "bodyParametersJson": "{\n  \"items\": {\n    \"99834\": {\n      \"qty\": 1,\n      \"date\": \"={{ $json.body.items['99834'].date }}\",\n      \"start_time\": \"={{ $json.body.items['99834'].start_time }}\",\n      \"end_time\": \"={{ $json.body.items['99834'].end_time }}\"\n    }\n  },\n  \"customer\": {\n    \"first_name\": \"={{ $json.body.customer.first_name }}\",\n    \"last_name\": \"={{ $json.body.customer.last_name }}\",\n    \"email\": \"={{ $json.body.customer.email }}\"\n  },\n  \"status\": \"={{ $json.body.status }}\"\n}"
       },
-      "id": "Webhook_Update",
-      "name": "Webhook: Update Calendar",
-      "type": "n8n-nodes-base.webhook",
+      "id": "CheckfrontCreate",
+      "name": "Create Booking in Checkfront",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [200, 250]
-    },
-    {
-      "parameters": {
-        "functionCode": "const auth = $json.headers['authorization'];\nif (auth !== 'Bearer yeehaw') {\n  throw new Error('Unauthorized: Missing or incorrect token');\n}\nreturn items;"
+      "position": [700, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Checkfront-API-Header-Auth",
+          "name": "Checkfront Header Auth"
+        }
       },
-      "id": "Header_Validation_Update",
-      "name": "Verify Header Token (Update)",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [400, 250]
-    },
-    {
-      "parameters": {
-        "functionCode": "// TODO: Handle Checkfront booking status updates, modify calendar accordingly\nreturn items;"
-      },
-      "id": "Process_Update",
-      "name": "Process Booking (Update)",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
-      "position": [600, 250]
+      "headers": {
+        "headerParametersJson": "[{\"name\": \"X-APP-APIKEY\", \"value\": \"1c4e8b53ef94de353a2ed031d41fb47e4f6edc7c\"}]"
+      }
     }
   ],
   "connections": {
     "Webhook: Create Booking": {
-      "main": [[{"node": "Verify Header Token", "type": "main", "index": 0}]]
+      "main": [[{"node": "Verify Header Token","type": "main","index": 0}]]
     },
     "Verify Header Token": {
-      "main": [[{"node": "Process Booking (Create)", "type": "main", "index": 0}]]
-    },
-
-    "Webhook: Update Calendar": {
-      "main": [[{"node": "Verify Header Token (Update)", "type": "main", "index": 0}]]
-    },
-    "Verify Header Token (Update)": {
-      "main": [[{"node": "Process Booking (Update)", "type": "main", "index": 0}]]
+      "main": [[{"node": "Create Booking in Checkfront","type": "main","index": 0}]]
     }
   },
   "active": false,
   "settings": {},
-  "tags": [
-    {
-      "name": "CARLA"
-    }
-  ]
+  "versionId": "carla-webhook-checkfront-test"
 }
