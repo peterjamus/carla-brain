@@ -1,142 +1,102 @@
 {
-  "name": "CARLA Webhook Auth",
-  "active": false,
+  "name": "CARLA_Build_One",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "carla-create-booking",
+        "authentication": "headerAuth",
+        "headerAuth": "Header Auth account 2",
         "responseMode": "onLastNode",
-        "options": {}
+        "options": {},
+        "responseCode": 200,
+        "responseData": "firstEntryJson"
       },
-      "id": "Webhook",
-      "name": "Webhook",
+      "id": "Webhook_Create",
+      "name": "Webhook: Create Booking",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        200,
-        300
-      ]
+      "position": [200, 0]
     },
     {
       "parameters": {
-        "conditions": {
-          "boolean": [],
-          "string": [
-            {
-              "value1": "={{$query.token}}",
-              "operation": "equal",
-              "value2": "supersecrettoken123"
-            }
-          ]
-        }
+        "functionCode": "const auth = $json.headers['authorization'];\nif (auth !== 'Bearer yeehaw') {\n  throw new Error('Unauthorized: Missing or incorrect token');\n}\nreturn items;"
       },
-      "id": "Check Token",
-      "name": "Check Token",
-      "type": "n8n-nodes-base.if",
+      "id": "Header_Validation",
+      "name": "Verify Header Token",
+      "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        400,
-        300
-      ]
+      "position": [400, 0]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "message",
-              "value": "Unauthorized"
-            }
-          ]
-        }
+        "functionCode": "// TODO: Translate Checkfront booking into internal Google Calendar event\nreturn items;"
       },
-      "id": "Set Unauthorized",
-      "name": "Set Unauthorized",
-      "type": "n8n-nodes-base.set",
+      "id": "Process_Create",
+      "name": "Process Booking (Create)",
+      "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        600,
-        450
-      ]
+      "position": [600, 0]
     },
+
     {
       "parameters": {
-        "responseCode": 403,
-        "responseMode": "lastNode",
+        "httpMethod": "POST",
+        "path": "carla-update-calendar",
+        "authentication": "headerAuth",
+        "headerAuth": "Header Auth account 2",
+        "responseMode": "onLastNode",
         "options": {},
-        "responseData": "={{$json[\"message\"]}}"
+        "responseCode": 200,
+        "responseData": "firstEntryJson"
       },
-      "id": "HTTP 403",
-      "name": "HTTP 403",
-      "type": "n8n-nodes-base.httpResponse",
+      "id": "Webhook_Update",
+      "name": "Webhook: Update Calendar",
+      "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [
-        800,
-        450
-      ]
+      "position": [200, 250]
     },
     {
       "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "message",
-              "value": "Token accepted. You may proceed."
-            }
-          ]
-        }
+        "functionCode": "const auth = $json.headers['authorization'];\nif (auth !== 'Bearer yeehaw') {\n  throw new Error('Unauthorized: Missing or incorrect token');\n}\nreturn items;"
       },
-      "id": "Set OK",
-      "name": "Set OK",
-      "type": "n8n-nodes-base.set",
+      "id": "Header_Validation_Update",
+      "name": "Verify Header Token (Update)",
+      "type": "n8n-nodes-base.function",
       "typeVersion": 1,
-      "position": [
-        600,
-        150
-      ]
+      "position": [400, 250]
+    },
+    {
+      "parameters": {
+        "functionCode": "// TODO: Handle Checkfront booking status updates, modify calendar accordingly\nreturn items;"
+      },
+      "id": "Process_Update",
+      "name": "Process Booking (Update)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [600, 250]
     }
   ],
   "connections": {
-    "Webhook": {
-      "main": [
-        [
-          {
-            "node": "Check Token",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Webhook: Create Booking": {
+      "main": [[{"node": "Verify Header Token", "type": "main", "index": 0}]]
     },
-    "Check Token": {
-      "main": [
-        [
-          {
-            "node": "Set OK",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Set Unauthorized",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Verify Header Token": {
+      "main": [[{"node": "Process Booking (Create)", "type": "main", "index": 0}]]
     },
-    "Set Unauthorized": {
-      "main": [
-        [
-          {
-            "node": "HTTP 403",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+
+    "Webhook: Update Calendar": {
+      "main": [[{"node": "Verify Header Token (Update)", "type": "main", "index": 0}]]
+    },
+    "Verify Header Token (Update)": {
+      "main": [[{"node": "Process Booking (Update)", "type": "main", "index": 0}]]
     }
-  }
+  },
+  "active": false,
+  "settings": {},
+  "tags": [
+    {
+      "name": "CARLA"
+    }
+  ]
 }
